@@ -1,0 +1,194 @@
+#!/usr/bin/python3
+from __future__ import print_function, absolute_import, unicode_literals
+
+import sys
+import argparse
+import subprocess
+import logging
+
+UPDATES_TESTING_REPO = "http://ftp.linux.cz/pub/linux/fedora/linux/updates/testing/{releasever}/{basearch}/"
+#UPDATES_TESTING_REPO = "http://download.fedoraproject.org/pub/fedora/linux/updates/testing/{releasever}/{basearch}/"
+UPDATES_REPO = "http://ftp.linux.cz/pub/linux/fedora/linux/updates/{releasever}/{basearch}/"
+#UPDATES_REPO = "http://download.fedoraproject.org/pub/fedora/linux/updates/{releasever}/{basearch}/"
+FEDORA_REPO = "http://download.fedoraproject.org/pub/fedora/linux/releases/{releasever}/Everything/{basearch}/os/"
+KOJI_TARGET_REPO = "https://kojipkgs.fedoraproject.org/repos/{target}/latest/{basearch}/"  # <tag>-build
+
+KERNEL_PACKAGE = "kernel"
+
+KERNEL_PACKAGES = [
+    KERNEL_PACKAGE,
+    "kernel-headers",
+    "kernel-modules-extra",
+]
+
+
+def set_logging(name="void", level=logging.DEBUG):
+    # create logger
+    logger = logging.getLogger(name)
+    logger.handlers = []
+    logger.setLevel(level)
+
+    # create console handler and set level to debug
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+
+    # create formatter
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    # add formatter to ch
+    ch.setFormatter(formatter)
+
+    # add ch to logger
+    logger.addHandler(ch)
+
+3
+set_logging(level=logging.DEBUG)  # override this however you want
+
+logger = logging.getLogger("void")
+
+
+def create_dnf_command(repos, packages, update=False):
+    """
+    repos = [
+        {
+            "name": ...,
+            "url": ...,
+        }
+    ]
+    """
+    dnf_command = [
+        'dnf',
+        '--disablerepo=*',
+    ]
+    for repo in repos:
+        dnf_command += [
+            '--repofrompath', '{name},{url}'.format(**repo),
+            '--enablerepo', '{name}'.format(**repo),
+        ]
+    dnf_command += ["--disableexcludes", "all"]
+    dnf_command += ["--refresh", "--nogpgcheck"]
+    if update:
+        dnf_command += ["update"] + packages
+    else:
+        dnf_command += ["install"] + packages
+    logger.debug(" ".join(dnf_command))
+    return dnf_command
+
+def koji_install(args):
+    target = args.KOJI_TAG
+    repo = KOJI_TARGET_REPO.format(target=target, basearch=args.arch)
+    repos = [
+        {
+            "name": target,
+            "url": repo,
+        }
+    ]
+    cmd = create_dnf_command(repos, args.PACKAGE)
+    subprocess.check_call(cmd)
+
+def package_install(args):
+    repos = []
+    for releasever in args.releases:
+        if args.koji_tag or args.koji:
+            if args.koji_tag:
+                tag = args.koji_tag
+            elif args.koji:
+                tag = "f{0}-build".format(releasever)
+            repos.append(render_repo(KOJI_TARGET_REPO, tag, target=tag, basearch=args.arch))
+        else:
+            fedora = "f{0}".format(releasever)
+            fedora_updates = "f{0}-u".format(releasever)
+            fedora_ut = "f{0}-ut".format(releasever)
+            repos.append(render_repo(FEDORA_REPO, fedora, releasever=releasever, basearch=args.arch))
+            repos.append(render_repo(UPDATES_REPO, fedora_updates, releasever=releasever, basearch=args.arch))
+            repos.append(render_repo(UPDATES_TESTING_REPO, fedora_ut, releasever=releasever, basearch=args.arch))
+    cmd = create_dnf_command(repos, [args.PACKAGE], update=True)
+    subprocess.check_call(cmd)
+
+def render_repo(repo_template, name, **kwargs):
+    repo = repo_template.format(**kwargs)
+    repo_dict = {
+        "name": name,
+        "url": repo,
+    }
+    logger.debug(repo_dict)
+    return repo_dict
+
+def kernel_install(args):
+    # logger.debug("version is %s", args.VERSION)
+    # kernel_pkgs_with_version = list(map(lambda x: "{0}-{1}".format(x, args.VERSION), KERNEL_PACKAGES))
+    # logger.debug(kernel_pkgs_with_version)
+
+    repos = []
+    for releasever in args.releases:
+        if args.koji_tag or args.koji:
+            if args.koji_tag:
+                tag = args.koji_tag
+            elif args.koji:
+                tag = "f{0}-build".format(releasever)
+            repos.append(render_repo(KOJI_TARGET_REPO, tag, target=tag, basearch=args.arch))
+        else:
+            fedora = "f{0}".format(releasever)
+            fedora_updates = "f{0}-u".format(releasever)
+            fedora_ut = "f{0}-ut".format(releasever)
+            repos.append(render_repo(FEDORA_REPO, fedora, releasever=releasever, basearch=args.arch))
+            repos.append(render_repo(UPDATES_REPO, fedora_updates, releasever=releasever, basearch=args.arch))
+            repos.append(render_repo(UPDATES_TESTING_REPO, fedora_ut, releasever=releasever, basearch=args.arch))
+    cmd = create_dnf_command(repos, [KERNEL_PACKAGE], update=True)
+    subprocess.check_call(cmd)
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Install packages from void"
+    )
+    exclusive_group = parser.add_mutually_exclusive_group()
+    exclusive_group.add_argument("-v", "--verbose", action="store_true", default=None)
+    exclusive_group.add_argument("-q", "--quiet", action="store_true")
+
+    parser.add_argument("--koji-tag")
+    parser.add_argument("-k", "--koji", action="store_true", default=False)
+    parser.add_argument("-r", "--releases", nargs="+", default=["22", "23", "24"])
+
+    subparsers = parser.add_subparsers(help='commands')
+
+    kernel_subp = subparsers.add_parser("kernel", help='install kernel packages')
+    kernel_subp.add_argument("--arch", default="x86_64")
+    kernel_subp.set_defaults(func=kernel_install)
+
+    package_subp = subparsers.add_parser("install", help='install kernel packages')
+    package_subp.add_argument("--arch", default="x86_64")
+    package_subp.add_argument("PACKAGE")
+    package_subp.set_defaults(func=package_install)
+
+    koji_subp = subparsers.add_parser("koji", help='install packages from koji')
+    koji_subp.add_argument("--arch", default="x86_64")
+    koji_subp.add_argument("KOJI_TAG", help="build ID")
+    koji_subp.add_argument("PACKAGE", help="build ID", nargs="+")
+    koji_subp.set_defaults(func=koji_install)
+
+    args = parser.parse_args()
+
+    try:
+        args.func(args)
+    except AttributeError as ex:
+        if hasattr(args, 'func'):
+            raise
+        else:
+            parser.print_help()
+    except KeyboardInterrupt:
+        print("Quitting on user request.")
+        return -1
+    except Exception as ex:  # pylint: disable=broad-except
+        if args.verbose:
+            raise
+        else:
+            logger.error("Exception caught: %s", repr(ex))
+            return -1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+
+
+print(koji_install("f24", ["python-ipython-console"]))
