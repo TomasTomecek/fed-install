@@ -1,5 +1,5 @@
 TEST_IMAGE_NAME := fed-install-test
-TEST_CONTAINER_RUN := docker run $(TEST_IMAGE_NAME)
+TEST_CONTAINER_RUN := docker run -t --rm -v ${PWD}:/src:Z $(TEST_IMAGE_NAME)
 
 default: test
 
