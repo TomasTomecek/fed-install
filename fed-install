@@ -2,10 +2,9 @@
 
 """
 TODO:
- * use all mirrors, not a specific one
- * do not mention any specific Fedora version
  * code cleanup
  * tests & CI
+ * unit tests
  * proper python packaging
  * documentation (list dependencies)
 """
@@ -22,23 +21,15 @@ import string
 import random
 import shutil
 
-UPDATES_TESTING_REPO = "http://ftp.linux.cz/pub/linux/fedora/linux/updates/testing/{releasever}/{basearch}/"
-#UPDATES_TESTING_REPO = "http://download.fedoraproject.org/pub/fedora/linux/updates/testing/{releasever}/{basearch}/"
-UPDATES_REPO = "http://ftp.linux.cz/pub/linux/fedora/linux/updates/{releasever}/{basearch}/"
-#UPDATES_REPO = "http://download.fedoraproject.org/pub/fedora/linux/updates/{releasever}/{basearch}/"
-FEDORA_REPO = "http://download.fedoraproject.org/pub/fedora/linux/releases/{releasever}/Everything/{basearch}/os/"
-KOJI_TARGET_REPO = "https://kojipkgs.fedoraproject.org/repos/{target}/latest/{basearch}/"  # <tag>-build
 
-KERNEL_PACKAGE = "kernel"
-
-KERNEL_PACKAGES = [
-    KERNEL_PACKAGE,
-    "kernel-headers",
-    "kernel-modules-extra",
-]
+UPDATES_TESTING_REPO_NAME = "updates-testing"
+UPDATES_REPO_NAME = "updates"
+FEDORA_REPO_NAME = "fedora"
+# <tag>-build
+KOJI_TARGET_REPO = "https://kojipkgs.fedoraproject.org/repos/{target}/latest/{basearch}/"
 
 
-def set_logging(name="void", level=logging.DEBUG):
+def set_logging(name="fed-install", level=logging.DEBUG):
     # create logger
     logger = logging.getLogger(name)
     logger.handlers = []
@@ -60,11 +51,11 @@ def set_logging(name="void", level=logging.DEBUG):
 
 # TODO: set logging in cli
 set_logging(level=logging.DEBUG)  # override this however you want
+logger = logging.getLogger("fed-install")
 
-logger = logging.getLogger("void")
 
-
-def create_dnf_command(repos, packages, dnf_command, enable_predefined_repos, yes):
+def create_dnf_command(repos, packages, dnf_command, enable_predefined_repos, yes,
+                         enable_repos=None, releasever=None):
     """
     repos = [
         {
@@ -73,11 +64,18 @@ def create_dnf_command(repos, packages, dnf_command, enable_predefined_repos, ye
         }
     ]
     """
+    # Igor, if you read this, I'm pretty sure you facepalm hard
+    # Yes, I am lazy to learn and use dnf API
     d = ['dnf']
     if yes:
         d += ['-y', ]
     if not enable_predefined_repos:
         d += ['--disablerepo=*', ]
+    if enable_repos:
+        for repo in enable_repos:
+            d += ["--enablerepo", repo]
+    if releasever:
+        d += ['--releasever', releasever]
     for repo in repos:
         d += [
             '--repofrompath', '{name},{url}'.format(**repo),
@@ -87,6 +85,7 @@ def create_dnf_command(repos, packages, dnf_command, enable_predefined_repos, ye
     d += ["--refresh", "--nogpgcheck", dnf_command] + packages
     logger.debug(" ".join(d))
     return d
+
 
 def koji_install(args):
     target = args.KOJI_TAG
@@ -101,22 +100,19 @@ def koji_install(args):
                              args.yes)
     subprocess.check_call(cmd)
 
-def download_koji_build(build_spec, arch):
-    """
-
-    """
-    subprocess.check_call(["koji", "download-build", "--arch=noarch", "--arch=%s" % arch, build_spec])
-    subprocess.check_call(["createrepo_c", "."])
 
 def install_koji_build(build_spec, packages, arch, dnf_command, enable_predefined_repos, yes):
     """
+    download a build from koji, create repo from it and install selected packages
     """
     repos = []
     tmpdir = tempfile.mkdtemp()
     cwd = os.getcwd()
     try:
         os.chdir(tmpdir)
-        download_koji_build(build_spec, arch)
+        subprocess.check_call(
+            ["koji", "download-build", "--arch=noarch", "--arch=%s" % arch, build_spec])
+        subprocess.check_call(["createrepo_c", "."])
 
         random_name = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
@@ -124,30 +120,22 @@ def install_koji_build(build_spec, packages, arch, dnf_command, enable_predefine
         repos.append(render_repo(repo_path, random_name))
 
         cmd = create_dnf_command(repos, packages, dnf_command, enable_predefined_repos, yes)
+        # TODO: clean metadata
         subprocess.check_call(cmd)
     finally:
         os.chdir(cwd)
         shutil.rmtree(tmpdir)
 
-def package_install(args):
-    repos = []
-    for releasever in args.releases:
-        if args.koji_tag or args.koji:
-            if args.koji_tag:
-                tag = args.koji_tag
-            elif args.koji:
-                tag = "f{0}-build".format(releasever)
-            repos.append(render_repo(KOJI_TARGET_REPO, tag, target=tag, basearch=args.arch))
-        else:
-            fedora = "f{0}".format(releasever)
-            fedora_updates = "f{0}-u".format(releasever)
-            fedora_ut = "f{0}-ut".format(releasever)
-            repos.append(render_repo(FEDORA_REPO, fedora, releasever=releasever, basearch=args.arch))
-            repos.append(render_repo(UPDATES_REPO, fedora_updates, releasever=releasever, basearch=args.arch))
-            repos.append(render_repo(UPDATES_TESTING_REPO, fedora_ut, releasever=releasever, basearch=args.arch))
-    cmd = create_dnf_command(repos, [args.PACKAGE], args.dnf_command, args.enable_predefined_repos,
-                             args.yes)
+
+def install_from_stable(release, packages, dnf_command, enable_predefined_repos, yes,
+                          enable_updates_testing):
+    repos_to_enable = [FEDORA_REPO_NAME, UPDATES_REPO_NAME]
+    if enable_updates_testing:
+        repos_to_enable += [UPDATES_TESTING_REPO_NAME]
+    cmd = create_dnf_command([], packages, dnf_command, enable_predefined_repos,
+                             yes, releasever=release, enable_repos=repos_to_enable)
     subprocess.check_call(cmd)
+
 
 def render_repo(repo_template, name, **kwargs):
     repo = repo_template.format(**kwargs)
@@ -158,33 +146,21 @@ def render_repo(repo_template, name, **kwargs):
     logger.debug(repo_dict)
     return repo_dict
 
-def kernel_install(args):
-    # logger.debug("version is %s", args.VERSION)
-    # kernel_pkgs_with_version = list(map(lambda x: "{0}-{1}".format(x, args.VERSION), KERNEL_PACKAGES))
-    # logger.debug(kernel_pkgs_with_version)
 
-    repos = []
-    for releasever in args.releases:
-        if args.koji_tag or args.koji:
-            if args.koji_tag:
-                tag = args.koji_tag
-            elif args.koji:
-                tag = "f{0}-build".format(releasever)
-            repos.append(render_repo(KOJI_TARGET_REPO, tag, target=tag, basearch=args.arch))
-        else:
-            fedora = "f{0}".format(releasever)
-            fedora_updates = "f{0}-u".format(releasever)
-            fedora_ut = "f{0}-ut".format(releasever)
-            repos.append(render_repo(FEDORA_REPO, fedora, releasever=releasever, basearch=args.arch))
-            repos.append(render_repo(UPDATES_REPO, fedora_updates, releasever=releasever, basearch=args.arch))
-            repos.append(render_repo(UPDATES_TESTING_REPO, fedora_ut, releasever=releasever, basearch=args.arch))
-    cmd = create_dnf_command(repos, [KERNEL_PACKAGE], args.dnf_command,
-                             args.enable_predefined_repos, args.yes)
-    subprocess.check_call(cmd)
+class Application:
+    def __init__(self, args):
+        self.args = args
 
-def cmd_koji_build_install(args):
-    install_koji_build(args.BUILD_SPEC, args.PACKAGE, args.arch, args.dnf_command,
-                       args.enable_predefined_repos, args.yes)
+    def run(self):
+        if self.args.command_name == "koji-build":
+            install_koji_build(self.args.BUILD_SPEC, self.args.PACKAGE, self.args.arch,
+                               self.args.dnf_command, self.args.enable_predefined_repos,
+                               self.args.yes)
+        elif self.args.command_name == 'fedora-release':
+            install_from_stable(self.args.FEDORA_RELEASE, self.args.PACKAGE,
+                                self.args.dnf_command, self.args.enable_predefined_repos,
+                                self.args.yes, self.args.enable_updates_testing)
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -194,26 +170,25 @@ def main():
     exclusive_group.add_argument("-v", "--verbose", action="store_true", default=None)
     exclusive_group.add_argument("-q", "--quiet", action="store_true")
 
-    parser.add_argument("--koji-tag")
     parser.add_argument("-y", "--yes", help="YES!", action="store_true")
-    parser.add_argument("-k", "--koji", action="store_true", default=False)
-    parser.add_argument("-r", "--releases", nargs="+", default=["22", "23", "24"])
-    parser.add_argument("--dnf-command", default="install")
+    parser.add_argument("--dnf-command", default="install",
+                        help="dnf command used, such as install, update, downgrade...")
     parser.add_argument("--enable-predefined-repos", action="store_true",
                         help="by default, pass --disablerepo='*' to dnf;"
                              " this argument disables that behavior",
                         default=False)
 
-    subparsers = parser.add_subparsers(help='commands')
+    subparsers = parser.add_subparsers(help='commands', dest="command_name")
 
-    kernel_subp = subparsers.add_parser("kernel", help='install kernel packages')
-    kernel_subp.add_argument("--arch", default="x86_64")
-    kernel_subp.set_defaults(func=kernel_install)
-
-    package_subp = subparsers.add_parser("install", help='install kernel packages')
-    package_subp.add_argument("--arch", default="x86_64")
-    package_subp.add_argument("PACKAGE")
-    package_subp.set_defaults(func=package_install)
+    # FIXME: name the command better
+    fed_rel_subp = subparsers.add_parser("fedora-release",
+                                         help='install packages from selected Fedora release')
+    fed_rel_subp.add_argument("FEDORA_RELEASE",
+                              help="For example, 26")
+    fed_rel_subp.add_argument("PACKAGE", help="package to install", nargs="+")
+    fed_rel_subp.add_argument("--enable-updates-testing", action="store_true",
+                              help="also enable 'updates-testing' repo",
+                              default=False)
 
     koji_subp = subparsers.add_parser("koji-tag", help='install packages from a koji tag')
     koji_subp.add_argument("--arch", default="x86_64",
@@ -229,17 +204,14 @@ def main():
     koji_build_subp.add_argument("BUILD_SPEC",
                                  help="<n-v-r | build_id | package>, see `koji download-build -h`")
     koji_build_subp.add_argument("PACKAGE", help="package to install", nargs="+")
-    koji_build_subp.set_defaults(func=cmd_koji_build_install)
 
     args = parser.parse_args()
 
+    a = Application(args)
+
     try:
-        args.func(args)
-    except AttributeError as ex:
-        if hasattr(args, 'func'):
-            raise
-        else:
-            parser.print_help()
+        a.run()
+        # parser.print_help()
     except KeyboardInterrupt:
         print("Quitting on user request.")
         return -1
