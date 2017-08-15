@@ -10,7 +10,7 @@ go-srpm-macros is a good candidate for testing since it has zero dependencies
 def test_koji_build():
     build_nvr = 'units-2.14-1.fc27'
     build_nvra = build_nvr + '.x86_64'
-    cmd = ["fed-install", "-y", "--enable-predefined-repos", "koji-build", build_nvr, "units"]
+    cmd = ["fed-install", "-y", "-v", "--enable-predefined-repos", "koji-build", build_nvr, "units"]
     subprocess.check_call(cmd)
     installed_package = subprocess.check_output(["rpm", "-q", "units"]).strip().decode()
 
@@ -21,7 +21,18 @@ def test_koji_build():
 
 def test_fedora_release():
     package_name = 'hardlink'
-    cmd = ["fed-install", "-y", "fedora-release", "25", package_name]
+    cmd = ["fed-install", "-y", "-v", "fedora-release", "25", package_name]
+    subprocess.check_call(cmd)
+    installed_package = subprocess.check_output(["rpm", "-q", package_name]).strip().decode()
+
+    assert "fc25" in installed_package
+
+    subprocess.check_call(["dnf", "-y", "remove", package_name])
+
+
+def test_fedora_tag():
+    package_name = 'hardlink'
+    cmd = ["fed-install", "-y", "-v", "koji-tag", "f25-build", package_name]
     subprocess.check_call(cmd)
     installed_package = subprocess.check_output(["rpm", "-q", package_name]).strip().decode()
 
