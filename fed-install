@@ -2,11 +2,9 @@
 
 """
 TODO:
- * code cleanup
  * tests & CI
  * unit tests
  * proper python packaging
- * documentation (list dependencies)
 """
 
 from __future__ import print_function, absolute_import, unicode_literals
@@ -87,17 +85,15 @@ def create_dnf_command(repos, packages, dnf_command, enable_predefined_repos, ye
     return d
 
 
-def koji_install(args):
-    target = args.KOJI_TAG
-    repo = KOJI_TARGET_REPO.format(target=target, basearch=args.arch)
+def install_from_koji_tag(koji_tag, packages, arch, dnf_command, enable_predefined_repos, yes):
+    repo = KOJI_TARGET_REPO.format(target=koji_tag, basearch=arch)
     repos = [
         {
-            "name": target,
+            "name": koji_tag,
             "url": repo,
         }
     ]
-    cmd = create_dnf_command(repos, args.PACKAGE, args.dnf_command, args.enable_predefined_repos,
-                             args.yes)
+    cmd = create_dnf_command(repos, packages, dnf_command, enable_predefined_repos, yes)
     subprocess.check_call(cmd)
 
 
@@ -160,6 +156,10 @@ class Application:
             install_from_stable(self.args.FEDORA_RELEASE, self.args.PACKAGE,
                                 self.args.dnf_command, self.args.enable_predefined_repos,
                                 self.args.yes, self.args.enable_updates_testing)
+        elif self.args.command_name == 'koji-tag':
+            install_from_koji_tag(self.args.KOJI_TAG, self.args.PACKAGE, self.args.arch,
+                                self.args.dnf_command, self.args.enable_predefined_repos,
+                                self.args.yes)
 
 
 def main():
@@ -195,7 +195,6 @@ def main():
                            help="architecture of binary packages to select")
     koji_subp.add_argument("KOJI_TAG", help="name of koji tag, see `koji list-tags`")
     koji_subp.add_argument("PACKAGE", help="package to install", nargs="+")
-    koji_subp.set_defaults(func=koji_install)
 
     koji_build_subp = subparsers.add_parser("koji-build",
                                             help='install packages from a koji build')
