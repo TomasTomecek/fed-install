@@ -17,4 +17,4 @@ test:
 	$(TEST_CONTAINER_RUN) make exec-test
 
 exec-test:
-	py.test-3 -vv tests
+	py.test-3 -vv tests/
