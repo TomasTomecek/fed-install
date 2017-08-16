@@ -17,5 +17,9 @@ $(MANPAGE_PATH): $(MANPAGE_SOURCE_PATH)
 test:
 	$(TEST_CONTAINER_RUN) make exec-test
 
+# install:
+# 	install -m 0755 ./fed-install $(DESTDIR)/usr/bin/
+# 	install -m 0644 ./docs/fed-install.1 $(DESTDIR)/usr/share/man/man1/
+
 exec-test:
 	py.test-3 -vv tests/
