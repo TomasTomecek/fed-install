@@ -199,7 +199,7 @@ def main():
     koji_build_subp = subparsers.add_parser("koji-build",
                                             help='install packages from a koji build')
     koji_build_subp.add_argument("--arch", default="x86_64",
-                                 help="architecture to download in addition to noarch")
+                                 help="architecture of packages to download in addition to noarch")
     koji_build_subp.add_argument("BUILD_SPEC",
                                  help="<n-v-r | build_id | package>, see `koji download-build -h`")
     koji_build_subp.add_argument("PACKAGE", help="package to install", nargs="+")
