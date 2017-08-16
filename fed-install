@@ -90,7 +90,8 @@ def install_from_koji_tag(koji_tag, packages, arch, dnf_command, enable_predefin
     subprocess.check_call(cmd)
 
 
-def install_koji_build(build_spec, packages, arch, dnf_command, enable_predefined_repos, yes):
+def install_koji_build(build_spec, packages, arch, dnf_command, enable_predefined_repos, yes,
+                       preserve_downloaded):
     """
     download a build from koji, create repo from it and install selected packages
     """
@@ -113,7 +114,8 @@ def install_koji_build(build_spec, packages, arch, dnf_command, enable_predefine
         subprocess.check_call(cmd)
     finally:
         os.chdir(cwd)
-        shutil.rmtree(tmpdir)
+        if not preserve_downloaded:
+            shutil.rmtree(tmpdir)
 
 
 def install_from_stable(release, packages, dnf_command, enable_predefined_repos, yes,
@@ -144,7 +146,7 @@ class Application:
         if self.args.command_name == "koji-build":
             install_koji_build(self.args.BUILD_SPEC, self.args.PACKAGE, self.args.arch,
                                self.args.dnf_command, self.args.enable_predefined_repos,
-                               self.args.yes)
+                               self.args.yes, self.args.preserve_downloaded)
         elif self.args.command_name == 'fedora-release':
             install_from_stable(self.args.FEDORA_RELEASE, self.args.PACKAGE,
                                 self.args.dnf_command, self.args.enable_predefined_repos,
@@ -195,6 +197,8 @@ def main():
                                             help='install packages from a koji build')
     koji_build_subp.add_argument("--arch", default="x86_64",
                                  help="architecture of packages to download in addition to noarch")
+    koji_build_subp.add_argument("--preserve-downloaded", action="store_true", default=False,
+                                 help="preserve downloaded packages (by default they are removed)")
     koji_build_subp.add_argument("BUILD_SPEC",
                                  help="<n-v-r | build_id | package>, see `koji download-build -h`")
     koji_build_subp.add_argument("PACKAGE", help="package to install", nargs="+")
