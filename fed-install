@@ -96,7 +96,7 @@ def install_koji_build(build_spec, packages, arch, dnf_command, enable_predefine
     download a build from koji, create repo from it and install selected packages
     """
     repos = []
-    tmpdir = tempfile.mkdtemp()
+    tmpdir = tempfile.mkdtemp(prefix="fed-install-")
     cwd = os.getcwd()
     try:
         os.chdir(tmpdir)
