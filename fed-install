@@ -1,12 +1,5 @@
 #!/usr/bin/python3
 
-"""
-TODO:
- * tests & CI
- * unit tests
- * proper python packaging
-"""
-
 from __future__ import print_function, absolute_import, unicode_literals
 
 import os

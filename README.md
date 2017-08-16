@@ -86,4 +86,6 @@ $ ./fed-install --dnf-command=update fedora-release 26 kernel
 
 ## TODO
 
-* manpage
+* RPM packaging
+* python packaging
+* unit tests
