@@ -16,11 +16,20 @@ dnf
 python3
 ```
 
-At some point, I will package fed-install as an RPM so these dependencies will
-be handled automatically.
+Right now you need to manually place the executable on our `$PATH`:
+
+```
+$ sudo curl -L -o /usr/local/bin/fed-install https://raw.githubusercontent.com/TomasTomecek/fed-install/master/fed-install
+$ sudo chmod +x /usr/local/bin/fed-install
+```
+
+At some point, I will package fed-install as an RPM so the installation process
+is handled automatically.
 
 
 ## Features
+
+Please use [man page](https://github.com/TomasTomecek/fed-install/blob/master/docs/fed-install.1.md) for complete reference or `--help` option.
 
 
 ### Install packages from koji tags or koji builds.
