@@ -1,12 +1,13 @@
 % FED-INSTALL(1) Man Page
 % Tomas Tomecek
-% August 2017
+% December 2017
 # NAME
 fed-install — install packages from specific Fedora releases or even from koji
 
 # SYNOPSIS
 **fed-install** [-h] [-v | -q] [-y] [--dnf-command DNF_COMMAND]
-            [--enable-predefined-repos]
+            [--enable-predefined-repos] [--dnf-options DNF_OPTIONS]
+            [--disable-dnf-excludes]
             {fedora-release,koji-tag,koji-build} ...
 
 # DESCRIPTION
@@ -37,22 +38,61 @@ options. These are the sources you can install packages from:
 **--enable-predefined-repos**
   Do not pass "--disablerepo='\*'" to dnf.
 
+**--dnf-options DNF_OPTIONS**
+  Invalidate default dnf options and use your own.
+
+**--disable-dnf-excludes**
+  Passes '--disableexcludes=all' to dnf: the options disables excludes you may
+  have specified in dnf.conf.
+
 # COMMANDS
 
-**fed-install [options] fedora-release FEDORA_RELEASE PACKAGE [PACKAGE ...]**
+**fed-install** [options] from-release
+            [--enable-updates-testing]
+            FEDORA_RELEASE
+            PACKAGE [PACKAGE ...]
+
+  **FEDORA_RELEASE**
+    Numerical identification of selected Fedora release, e.g. 27.
+
+  **PACKAGE**
+    Name of package to install.
 
   **--enable-updates-testing**
     Also enable 'updates-testing' repo.
 
-**fed-install [options] koji-build BUILD_SPEC PACKAGE [PACKAGE ...]**
+**fed-install** [options] koji-build
+            [--arch ARCH [ARCH ...]] [--preserve-downloaded]
+            BUILD_SPEC
+            PACKAGE [PACKAGE ...]
+
+  **BUILD_SPEC**
+    <n-v-r | build_id | package>, see `koji download-build -h`
+
+  **PACKAGE**
+    Name of package to install.
+
+  **--arch ARCH [ARCH ...]**
+    Architectures of packages to download in addition to noarch, pick more for multilib
+
+  **--preserve-downloaded**
+    Preserve downloaded packages (by default they are removed)
+
+**fed-install** [options] koji-tag
+            [--arch ARCH [ARCH ...]]
+            KOJI_TAG
+            PACKAGE [PACKAGE ...]
+
+  **KOJI_TAG**
+    name of koji tag, see `koji list-tags`
+
+  **PACKAGE**
+    Name of package to install.
 
   **--arch ARCH**
-    Architecture of packages to download in addition to noarch.
+    Architectures of binary packages to select (this accepts multiple values so
+    you can do multilib).
 
-**fed-install [options] koji-tag KOJI_TAG PACKAGE [PACKAGE ...]**
-
-  **--arch ARCH**
-    Architecture of packages to download in addition to noarch.
 
 # HISTORY
-August 2017, Originally compiled by Tomas Tomecek
+December 2017, Originally compiled by Tomas Tomecek

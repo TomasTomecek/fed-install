@@ -21,7 +21,7 @@ def test_koji_build():
 
 def test_fedora_release():
     package_name = 'hardlink'
-    cmd = ["fed-install", "-y", "-v", "fedora-release", "25", package_name]
+    cmd = ["fed-install", "-y", "-v", "from-release", "25", package_name]
     subprocess.check_call(cmd)
     installed_package = subprocess.check_output(["rpm", "-q", package_name]).strip().decode()
 
@@ -39,3 +39,5 @@ def test_fedora_tag():
     assert "fc25" in installed_package
 
     subprocess.check_call(["dnf", "-y", "remove", package_name])
+
+# TODO: add test which installs specific wine version
