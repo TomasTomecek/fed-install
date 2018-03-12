@@ -1,15 +1,11 @@
-%global commit          b14bff2ccbf7da61dc06c0e90a111590dc18e8f5
-%global shortcommit     %(c=%{commit}; echo ${c:0:7})
-%global commitdate      20171201
-
 Name:           fed-install
-Version:        0
-Release:        0.1.%{commitdate}git%{shortcommit}%{?dist}
+Version:        0.1.0
+Release:        1%{?dist}
 Summary:        Install packages from specific Fedora releases or even from koji
 
 License:        MIT
 URL:            https://github.com/TomasTomecek/fed-install
-Source0:        %{url}/archive/%{commit}/%{name}-%{shortcommit}.tar.gz
+Source0:        %{url}/archive/%{version}/%{name}-%{version}.tar.gz
 
 BuildArch:      noarch
 
@@ -25,7 +21,7 @@ Install packages from specific Fedora releases or even from koji.
 
 
 %prep
-%autosetup -p1 -n %{name}-%{commit}
+%autosetup -p1 -n %{name}-%{version}
 
 
 %build
@@ -47,5 +43,5 @@ install -Dpm0755 %{name} \
 
 
 %changelog
-* Fri Mar 09 2018 Robert-André Mauchin <zebob.m@gmail.com> - 0-0.1.20171201gitb14bff2
+* Fri Mar 09 2018 Robert-André Mauchin <zebob.m@gmail.com> - 0.1.0-1
 - Initial RPM release
