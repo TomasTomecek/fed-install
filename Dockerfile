@@ -1,9 +1,9 @@
-FROM fedora:26
+FROM fedora:27
 
 LABEL maintainer="Tomas Tomecek <tomas@tomecek.net>"
 
 RUN dnf install -y make python3-pytest createrepo_c koji
-RUN dnf install -y python3-ipdb
+# RUN dnf install -y python3-ipdb
 
 ENV PYTHONDONTWRITEBYTECODE=YES
 

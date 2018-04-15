@@ -7,7 +7,7 @@ MANPAGE_PATH := docs/fed-install.1
 
 default: test
 
-test-container-image:
+build-test-env:
 	docker build --tag=$(TEST_IMAGE_NAME) .
 
 docs: $(MANPAGE_PATH)
