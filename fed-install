@@ -46,8 +46,6 @@ def set_logging(name="fed-install", level=logging.DEBUG):
     logger.addHandler(ch)
 
 
-# TODO: set logging in cli
-set_logging(level=logging.DEBUG)  # override this however you want
 logger = logging.getLogger("fed-install")
 
 
@@ -298,7 +296,6 @@ def main():
 
     subparsers = parser.add_subparsers(help='commands', dest="command_name")
 
-    # FIXME: name the command better
     fed_rel_subp = subparsers.add_parser(FROM_RELEASE_COMMAND,
                                          help='install packages from selected Fedora release')
     fed_rel_subp.add_argument("FEDORA_RELEASE",
@@ -332,6 +329,13 @@ def main():
     if not args.command_name:
         parser.print_help()
         return -2
+
+    if args.verbose:
+        set_logging(level=logging.DEBUG)
+    elif args.quiet:
+        set_logging(level=logging.ERROR)
+    else:
+        set_logging(level=logging.INFO)
 
     try:
         run_application(args)
