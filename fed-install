@@ -120,6 +120,7 @@ class FromReleaseConfiguration(Configuration):
         super().__init__(cli_args)
         self.enable_updates_testing = cli_args.enable_updates_testing
         self.releasever = cli_args.FEDORA_RELEASE
+        self.disableexcludes = cli_args.disable_dnf_excludes
 
 
 class FromReleaseCommand:
@@ -148,7 +149,8 @@ class FromReleaseCommand:
             enable_predefined_repos=self.conf.enable_predefined_repos,
             enable_repos=repos_to_enable,
             releasever=self.conf.releasever,
-            options=dnf_options
+            options=dnf_options,
+            disableexcludes=self.conf.disableexcludes
         )
         subprocess.check_call(d.build())
 
