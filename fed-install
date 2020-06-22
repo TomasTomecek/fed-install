@@ -14,11 +14,11 @@ import shutil
 
 
 UPDATES_TESTING_REPO_NAME = "updates-testing"
-UPDATES_TESTING_SOURCE_REPO_NAME = "updates-testing-source"
+# UPDATES_TESTING_SOURCE_REPO_NAME = "updates-testing-source"
 UPDATES_REPO_NAME = "updates"
-UPDATES_SOURCE_REPO_NAME = "updates-source"
+# UPDATES_SOURCE_REPO_NAME = "updates-source"
 FEDORA_REPO_NAME = "fedora"
-FEDORA_SOURCE_REPO_NAME = "fedora-source"
+# FEDORA_SOURCE_REPO_NAME = "fedora-source"
 # <tag>-build
 KOJI_TARGET_REPO = "https://kojipkgs.fedoraproject.org/repos/{target}/latest/{basearch}/"
 FROM_RELEASE_COMMAND = 'from-release'
@@ -133,12 +133,10 @@ class FromReleaseCommand:
     def run(self):
         repos_to_enable = [
             FEDORA_REPO_NAME,
-            FEDORA_SOURCE_REPO_NAME,
             UPDATES_REPO_NAME,
-            UPDATES_SOURCE_REPO_NAME
         ]
         if self.conf.enable_updates_testing:
-            repos_to_enable += [UPDATES_TESTING_REPO_NAME, UPDATES_TESTING_SOURCE_REPO_NAME]
+            repos_to_enable.append(UPDATES_TESTING_REPO_NAME)
         dnf_options = None
         if self.conf.dnf_options:
             dnf_options = shlex.split(self.conf.dnf_options)
